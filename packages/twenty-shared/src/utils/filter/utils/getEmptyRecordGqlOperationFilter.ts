@@ -3,7 +3,6 @@ import {
   type ActorFilter,
   type AddressFilter,
   type ArrayFilter,
-  type CurrencyFilter,
   type DateFilter,
   type FloatFilter,
   type MultiSelectFilter,
@@ -133,17 +132,24 @@ export const getEmptyRecordGqlOperationFilter = ({
       }
       break;
     }
-    case 'CURRENCY':
+    case 'CURRENCY': {
+      // Emptiness follows the picked sub-field: "Currency is empty" means no
+      // currency code, not no amount
+      const currencyEmptinessSubFieldName = isSubFieldFilter
+        ? compositeFieldName
+        : 'amountMicros';
+
       emptyRecordFilter = {
         or: [
           {
             [correspondingField.name]: {
-              amountMicros: { is: 'NULL' },
-            } as CurrencyFilter,
+              [currencyEmptinessSubFieldName]: { is: 'NULL' },
+            },
           },
         ],
       };
       break;
+    }
     case 'FULL_NAME': {
       if (!isSubFieldFilter) {
         const fullNameFilters = generateILikeFiltersForCompositeFields(

@@ -69,7 +69,8 @@ export const TextInput = ({
   onClickOutside,
   onChange,
   copyButton = true,
-  shouldTrim = true,
+  // Trimming per keystroke eats each space as it is typed; callers trim on commit
+  shouldTrim = false,
   disabled,
   className,
 }: TextInputProps) => {

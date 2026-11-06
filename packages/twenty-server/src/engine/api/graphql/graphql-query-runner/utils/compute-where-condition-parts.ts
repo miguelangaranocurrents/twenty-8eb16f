@@ -17,15 +17,7 @@ type WhereConditionParts = {
   params: ObjectLiteral;
 };
 
-export const computeWhereConditionParts = ({
-  operator,
-  objectNameSingular,
-  key,
-  subFieldKey,
-  value,
-  fieldMetadataType,
-  useDirectTableReference = false,
-}: {
+type ComputeWhereConditionPartsArgs = {
   operator: string;
   objectNameSingular: string;
   key: string;
@@ -34,7 +26,18 @@ export const computeWhereConditionParts = ({
   value: any;
   fieldMetadataType: FieldMetadataType;
   useDirectTableReference?: boolean;
-}): WhereConditionParts => {
+  isNegated?: boolean;
+};
+
+const computeUnnegatedWhereConditionParts = ({
+  operator,
+  objectNameSingular,
+  key,
+  subFieldKey,
+  value,
+  fieldMetadataType,
+  useDirectTableReference = false,
+}: Omit<ComputeWhereConditionPartsArgs, 'isNegated'>): WhereConditionParts => {
   const paramSuffix = randomBytes(5).toString('hex');
 
   const secondParamSuffix = randomBytes(5).toString('hex');
@@ -210,4 +213,24 @@ export const computeWhereConditionParts = ({
         { userFriendlyMessage: STANDARD_ERROR_MESSAGE },
       );
   }
+};
+
+export const computeWhereConditionParts = ({
+  isNegated = false,
+  ...args
+}: ComputeWhereConditionPartsArgs): WhereConditionParts => {
+  const { sql, params } = computeUnnegatedWhereConditionParts(args);
+
+  // NOT drops NULL rows (NOT NULL is NULL) while the in-memory matchers read a
+  // null value as failing the inner condition, so a negated leaf has to keep
+  // them. Pure null tests already invert correctly without the widening.
+  if (!isNegated || args.operator === 'is' || args.operator === 'isStrictly') {
+    return { sql, params };
+  }
+
+  const fieldReference = args.useDirectTableReference
+    ? `"${args.key}"`
+    : `"${args.objectNameSingular}"."${args.key}"`;
+
+  return { sql: `(${sql}) AND ${fieldReference} IS NOT NULL`, params };
 };
